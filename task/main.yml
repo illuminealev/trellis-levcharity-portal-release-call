@@ -1,0 +1,48 @@
+---
+- name: Get all release directory names
+  find:
+    paths: "{{ project_root }}/releases"
+    file_type: directory
+  register: release_dirs
+
+- name: Extract release folder names
+  set_fact:
+    releases_array: "{{ release_dirs.files | map(attribute='path') | map('basename') | list }}"
+
+- name: Get current release (target of the symlink)
+  stat:
+    path: "{{ project_root }}/current"
+  register: current_symlink
+
+- name: Set current release name or default
+  set_fact:
+    current_release: "{{ (current_symlink.stat.islnk | default(false)) | ternary(current_symlink.stat.lnk_target | basename, 'none') }}"
+  # Sets 'none' if current symlink doesn’t exist or isn’t a symlink
+
+- name: Post Releases to API
+  uri:
+    url: "https://portal.levcharity.com/api/v1/release"
+    method: POST
+    headers:
+      Content-Type: "application/json"
+      # Add authentication if required, e.g.:
+      # Authorization: "Bearer {{ api_token }}"
+    body_format: json
+    body:
+      ip: "{{ ansible_host }}"
+      url: "https://{{ site }}"
+      releases: "{{ releases_array }}"
+      current: "{{ current_release }}"
+    status_code: 200,201,202,204
+    timeout: 30
+  register: api_result
+  no_log: true
+  # Add retry for network issues
+  retries: 3
+  delay: 5
+  when: current_release is defined  # Skip if critical data is missing
+
+- name: Display API response (only in verbose mode)
+  debug:
+    var: api_result
+    verbosity: 1
