@@ -19,14 +19,12 @@
     current_release: "{{ (current_symlink.stat.islnk | default(false)) | ternary(current_symlink.stat.lnk_target | basename, 'none') }}"
   # Sets 'none' if current symlink doesn’t exist or isn’t a symlink
 
-- name: Post Releases to API
+- name: Release call to Levcharity Portal API
   uri:
     url: "https://portal.levcharity.com/api/v1/release"
     method: POST
     headers:
       Content-Type: "application/json"
-      # Add authentication if required, e.g.:
-      # Authorization: "Bearer {{ api_token }}"
     body_format: json
     body:
       ip: "{{ ansible_host }}"

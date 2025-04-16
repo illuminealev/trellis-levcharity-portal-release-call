@@ -2,4 +2,4 @@
 - hosts: localhost
   remote_user: web
   roles:
-    - trellis-post-releases-after-deploy
+    - trellis-levcharity-portal-release-call
