@@ -4,20 +4,26 @@
     paths: "{{ project_root }}/releases"
     file_type: directory
   register: release_dirs
+  ignore_errors: true
 
 - name: Extract release folder names
   set_fact:
-    releases_array: "{{ release_dirs.files | map(attribute='path') | map('basename') | list }}"
+    releases_array: "{{ release_dirs.files | default([]) | map(attribute='path') | map('basename') | list }}"
 
-- name: Get current release (target of the symlink)
+- name: Set default releases_array if empty
+  set_fact:
+    releases_array: [ "00000000000000" ]
+  when: releases_array is not defined or releases_array | length == 0
+
+
+- name: Get current release
   stat:
     path: "{{ project_root }}/current"
   register: current_symlink
 
 - name: Set current release name or default
   set_fact:
-    current_release: "{{ (current_symlink.stat.islnk | default(false)) | ternary(current_symlink.stat.lnk_target | basename, 'none') }}"
-  # Sets 'none' if current symlink doesn’t exist or isn’t a symlink
+    current_release: "{{ (current_symlink.stat.islnk | default(false)) | ternary(current_symlink.stat.lnk_target | basename, '00000000000000') }}"
 
 - name: Release call to Levcharity Portal API
   uri:
@@ -34,11 +40,9 @@
     status_code: 200,201,202,204
     timeout: 30
   register: api_result
-  no_log: true
-  # Add retry for network issues
+  no_log: false
   retries: 3
   delay: 5
-  when: current_release is defined  # Skip if critical data is missing
 
 - name: Display API response (only in verbose mode)
   debug:
